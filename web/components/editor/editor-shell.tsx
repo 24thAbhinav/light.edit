@@ -1,10 +1,26 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
-import { useEditorStore } from "@/lib/editor-store";
-import { processImageData } from "@/lib/engine/image-processor";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type DragEvent,
+} from "react";
+import { defaultEditState, type CropRegion } from "@/lib/edit-state";
+import {
+  createPhotoId,
+  selectActivePhoto,
+  useCanRedo,
+  useCanUndo,
+  useEditorStore,
+  type EditorPhoto,
+} from "@/lib/editor-store";
+import { renderEditedCanvas } from "@/lib/engine/render";
 import { DevelopPanel } from "./develop-panel";
 import { EmptyState } from "./empty-state";
+import { Filmstrip } from "./filmstrip";
+import { RedoIcon, UndoIcon } from "./icons";
 import { Stage } from "./stage";
 
 const exportName = (name: string | null) => {
@@ -12,58 +28,163 @@ const exportName = (name: string | null) => {
   return `${base}-edited.png`;
 };
 
+const HEADER_BUTTON =
+  "flex h-7 w-7 items-center justify-center rounded border border-line-strong bg-raised text-ink-muted transition-colors hover:border-ink-faint hover:text-ink disabled:cursor-default disabled:border-line disabled:text-ink-faint disabled:hover:border-line disabled:hover:text-ink-faint";
+
+const isTypingTarget = (target: EventTarget | null) => {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable) return true;
+  if (target.tagName === "TEXTAREA") return true;
+  if (target.tagName === "INPUT") {
+    const type = (target as HTMLInputElement).type;
+    return [
+      "text",
+      "search",
+      "email",
+      "url",
+      "tel",
+      "password",
+      "number",
+    ].includes(type);
+  }
+  return false;
+};
+
 export function EditorShell() {
-  const [image, setImage] = useState<HTMLImageElement | null>(null);
-  const [fileName, setFileName] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [cropMode, setCropMode] = useState(false);
+  const [compare, setCompare] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
-  const objectUrlRef = useRef<string | null>(null);
+  const objectUrlsRef = useRef<string[]>([]);
+  const cropBackupRef = useRef<CropRegion | null>(null);
+
+  const activeImage = useEditorStore(
+    (state) => selectActivePhoto(state)?.image ?? null,
+  );
+  const activeName = useEditorStore(
+    (state) => selectActivePhoto(state)?.name ?? null,
+  );
+  const activeWidth = useEditorStore(
+    (state) => selectActivePhoto(state)?.width ?? 0,
+  );
+  const activeHeight = useEditorStore(
+    (state) => selectActivePhoto(state)?.height ?? 0,
+  );
+  const hasPhotos = useEditorStore((state) => state.photos.length > 0);
+  const addPhotos = useEditorStore((state) => state.addPhotos);
+  const undo = useEditorStore((state) => state.undo);
+  const redo = useEditorStore((state) => state.redo);
+  const canUndo = useCanUndo();
+  const canRedo = useCanRedo();
 
   useEffect(() => {
     return () => {
-      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+      objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
     };
   }, []);
 
-  const loadFile = useCallback((file: File) => {
-    if (file.type && !file.type.startsWith("image/")) {
-      setError("That file is not an image. Choose a JPEG, PNG, or WebP.");
-      return;
-    }
+  const loadPhoto = useCallback(
+    (file: File) =>
+      new Promise<EditorPhoto | null>((resolve) => {
+        const url = URL.createObjectURL(file);
+        const image = new Image();
+        image.onload = () => {
+          objectUrlsRef.current.push(url);
+          resolve({
+            id: createPhotoId(),
+            name: file.name,
+            url,
+            image,
+            width: image.naturalWidth,
+            height: image.naturalHeight,
+            edits: defaultEditState,
+            past: [],
+            future: [],
+            lastAction: null,
+          });
+        };
+        image.onerror = () => {
+          URL.revokeObjectURL(url);
+          resolve(null);
+        };
+        image.src = url;
+      }),
+    [],
+  );
 
-    if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
-    const url = URL.createObjectURL(file);
-    objectUrlRef.current = url;
+  const loadFiles = useCallback(
+    async (files: File[]) => {
+      if (files.length === 0) return;
+      const accepted = files.filter(
+        (file) => !file.type || file.type.startsWith("image/"),
+      );
+      if (accepted.length === 0) {
+        setError("Those files are not images. Choose JPEG, PNG, or WebP.");
+        return;
+      }
+      const loaded = await Promise.all(accepted.map(loadPhoto));
+      const entries = loaded.filter(
+        (entry): entry is EditorPhoto => entry !== null,
+      );
+      if (entries.length > 0) {
+        addPhotos(entries);
+        setError(null);
+      } else {
+        setError("Those images could not be opened. Try different files.");
+      }
+    },
+    [addPhotos, loadPhoto],
+  );
 
-    const next = new Image();
-    next.onload = () => {
-      setImage(next);
-      setFileName(file.name);
-      setError(null);
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (isTypingTarget(event.target)) return;
+      const key = event.key.toLowerCase();
+      const mod = event.metaKey || event.ctrlKey;
+
+      if (mod && key === "z") {
+        event.preventDefault();
+        if (event.shiftKey) useEditorStore.getState().redo();
+        else useEditorStore.getState().undo();
+        return;
+      }
+      if (!mod && key === "y") {
+        event.preventDefault();
+        setCompare(true);
+      }
     };
-    next.onerror = () => {
-      URL.revokeObjectURL(url);
-      if (objectUrlRef.current === url) objectUrlRef.current = null;
-      setError("That image could not be opened. Try a different file.");
+
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() === "y") setCompare(false);
     };
-    next.src = url;
+
+    const onBlur = () => setCompare(false);
+
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", onBlur);
+    };
   }, []);
 
   const openPicker = useCallback(() => inputRef.current?.click(), []);
 
   const handleFileInput = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) loadFile(file);
+    const files = Array.from(event.target.files ?? []);
+    if (files.length > 0) loadFiles(files);
     event.target.value = "";
   };
 
   const handleDrop = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     setIsDragging(false);
-    const file = event.dataTransfer.files?.[0];
-    if (file) loadFile(file);
+    const files = Array.from(event.dataTransfer.files ?? []);
+    if (files.length > 0) loadFiles(files);
   };
 
   const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
@@ -80,18 +201,23 @@ export function EditorShell() {
     setIsDragging(false);
   };
 
-  const exportImage = async () => {
-    if (!image) return;
-    const canvas = document.createElement("canvas");
-    canvas.width = image.naturalWidth;
-    canvas.height = image.naturalHeight;
-    const context = canvas.getContext("2d");
-    if (!context) return;
-    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  const startCrop = () => {
+    const photo = selectActivePhoto(useEditorStore.getState());
+    cropBackupRef.current = photo ? photo.edits.crop : null;
+    setCropMode(true);
+  };
 
-    const source = context.getImageData(0, 0, canvas.width, canvas.height);
-    const processed = processImageData(source, useEditorStore.getState().edits);
-    context.putImageData(processed, 0, 0);
+  const applyCrop = () => setCropMode(false);
+
+  const cancelCrop = () => {
+    useEditorStore.getState().setCrop(cropBackupRef.current);
+    setCropMode(false);
+  };
+
+  const exportImage = async () => {
+    const photo = selectActivePhoto(useEditorStore.getState());
+    if (!photo) return;
+    const canvas = renderEditedCanvas(photo.image, photo.edits);
 
     const blob = await new Promise<Blob | null>((resolve) =>
       canvas.toBlob(resolve, "image/png"),
@@ -101,7 +227,7 @@ export function EditorShell() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = exportName(fileName);
+    link.download = exportName(photo.name);
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -116,30 +242,55 @@ export function EditorShell() {
           <span className="pe-wordmark-ext text-ink-faint">.edit</span>
         </div>
         <div className="hidden min-w-0 items-baseline gap-3 sm:flex">
-          {fileName && image ? (
+          {activeName ? (
             <>
               <span
                 className="max-w-[240px] truncate text-[12px] text-ink-muted"
-                title={fileName}
+                title={activeName}
               >
-                {fileName}
+                {activeName}
               </span>
               <span className="font-mono text-[11px] text-ink-faint">
-                {image.naturalWidth} × {image.naturalHeight}
+                {activeWidth} × {activeHeight}
               </span>
             </>
           ) : (
             <span className="text-[12px] text-ink-faint">No photo</span>
           )}
         </div>
-        <button
-          type="button"
-          onClick={exportImage}
-          disabled={!image}
-          className="ml-auto rounded bg-ink px-3.5 py-1.5 text-[12px] font-medium text-canvas transition-opacity hover:opacity-90 disabled:cursor-default disabled:bg-raised disabled:text-ink-faint disabled:hover:opacity-100"
-        >
-          Export
-        </button>
+        <div className="ml-auto flex items-center gap-2">
+          <span className="hidden text-[11px] text-ink-faint lg:inline">
+            Hold Y to compare
+          </span>
+          <button
+            type="button"
+            onClick={undo}
+            disabled={!canUndo}
+            title="Undo (Ctrl+Z)"
+            aria-label="Undo"
+            className={HEADER_BUTTON}
+          >
+            <UndoIcon />
+          </button>
+          <button
+            type="button"
+            onClick={redo}
+            disabled={!canRedo}
+            title="Redo (Ctrl+Shift+Z)"
+            aria-label="Redo"
+            className={HEADER_BUTTON}
+          >
+            <RedoIcon />
+          </button>
+          <button
+            type="button"
+            onClick={exportImage}
+            disabled={!activeImage}
+            className="rounded bg-ink px-3.5 py-1.5 text-[12px] font-medium text-canvas transition-opacity hover:opacity-90 disabled:cursor-default disabled:bg-raised disabled:text-ink-faint disabled:hover:opacity-100"
+          >
+            Export
+          </button>
+        </div>
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
@@ -150,19 +301,33 @@ export function EditorShell() {
           onDragEnter={handleDragEnter}
           onDragLeave={handleDragLeave}
         >
-          <Stage image={image} isDragging={isDragging}>
+          <Stage
+            image={activeImage}
+            isDragging={isDragging}
+            cropMode={cropMode}
+            compare={compare}
+          >
             <EmptyState onChoose={openPicker} error={error} />
           </Stage>
         </div>
         <div className="pe-rise-late flex max-h-[46vh] min-h-0 w-full shrink-0 flex-col border-t border-line bg-panel md:max-h-none md:w-[336px] md:border-t-0 md:border-l">
-          <DevelopPanel />
+          <DevelopPanel
+            hasImage={activeImage !== null}
+            cropMode={cropMode}
+            onStartCrop={startCrop}
+            onApplyCrop={applyCrop}
+            onCancelCrop={cancelCrop}
+          />
         </div>
       </div>
+
+      {hasPhotos ? <Filmstrip onAdd={openPicker} /> : null}
 
       <input
         ref={inputRef}
         type="file"
         accept="image/*"
+        multiple
         className="hidden"
         onChange={handleFileInput}
       />

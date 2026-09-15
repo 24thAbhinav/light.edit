@@ -1,32 +1,79 @@
 "use client";
 
 import { useCallback, useEffect, useRef, type ReactNode } from "react";
-import type { EditState } from "@/lib/edit-state";
-import { useEditorStore } from "@/lib/editor-store";
+import {
+  getActiveEdits,
+  useActiveEdits,
+  useEditorStore,
+} from "@/lib/editor-store";
 import { processImageData } from "@/lib/engine/image-processor";
+import {
+  cropToPixels,
+  drawEditGeometry,
+  FULL_CROP,
+  rotatedDimensions,
+} from "@/lib/engine/geometry";
+import { CropOverlay } from "./crop-overlay";
 
 export function Stage({
   image,
   isDragging,
+  cropMode,
+  compare,
   children,
 }: {
   image: HTMLImageElement | null;
   isDragging: boolean;
+  cropMode: boolean;
+  compare: boolean;
   children: ReactNode;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sourceRef = useRef<ImageData | null>(null);
+  const compareRef = useRef(compare);
+  compareRef.current = compare;
 
-  const edits = useEditorStore((state) => state.edits);
+  const edits = useActiveEdits();
+  const setCrop = useEditorStore((state) => state.setCrop);
 
-  const paint = useCallback((state: EditState) => {
+  const rotation = edits.rotation;
+  const appliedCrop = cropMode ? null : edits.crop;
+  const cropKey = appliedCrop
+    ? `${appliedCrop.x},${appliedCrop.y},${appliedCrop.width},${appliedCrop.height}`
+    : "full";
+  const colorKey = [
+    edits.exposure,
+    edits.contrast,
+    edits.highlights,
+    edits.shadows,
+    edits.whites,
+    edits.blacks,
+    edits.temperature,
+    edits.tint,
+    edits.vibrance,
+    edits.saturation,
+  ].join(",");
+
+  const paint = useCallback(() => {
     const canvas = canvasRef.current;
     const source = sourceRef.current;
     if (!canvas || !source) return;
     const context = canvas.getContext("2d");
     if (!context) return;
-    context.putImageData(processImageData(source, state), 0, 0);
+
+    const output = processImageData(source, getActiveEdits());
+
+    if (compareRef.current) {
+      const rowBytes = source.width * 4;
+      const half = Math.floor(source.width / 2) * 4;
+      for (let row = 0; row < source.height; row += 1) {
+        const start = row * rowBytes;
+        output.data.set(source.data.subarray(start, start + half), start);
+      }
+    }
+
+    context.putImageData(output, 0, 0);
   }, []);
 
   useEffect(() => {
@@ -41,14 +88,19 @@ export function Stage({
       const { width, height } = container.getBoundingClientRect();
       if (width === 0 || height === 0) return;
 
+      const state = getActiveEdits();
+      const activeCrop = cropMode ? null : state.crop;
+      const dimensions = rotatedDimensions(image, state.rotation);
+      const region = cropToPixels(activeCrop, dimensions.width, dimensions.height);
+
       const gutter = 64;
-      const scale = Math.min(
-        Math.max(width - gutter, 1) / image.naturalWidth,
-        Math.max(height - gutter, 1) / image.naturalHeight,
+      const fitScale = Math.min(
+        Math.max(width - gutter, 1) / region.width,
+        Math.max(height - gutter, 1) / region.height,
       );
 
-      const displayWidth = Math.max(Math.round(image.naturalWidth * scale), 1);
-      const displayHeight = Math.max(Math.round(image.naturalHeight * scale), 1);
+      const displayWidth = Math.max(Math.round(region.width * fitScale), 1);
+      const displayHeight = Math.max(Math.round(region.height * fitScale), 1);
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
       canvas.width = Math.round(displayWidth * dpr);
@@ -58,23 +110,29 @@ export function Stage({
 
       const context = canvas.getContext("2d");
       if (!context) return;
-      context.imageSmoothingQuality = "high";
       context.clearRect(0, 0, canvas.width, canvas.height);
-      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      drawEditGeometry(
+        context,
+        image,
+        state.rotation,
+        activeCrop,
+        canvas.width,
+        canvas.height,
+      );
 
       sourceRef.current = context.getImageData(0, 0, canvas.width, canvas.height);
-      paint(useEditorStore.getState().edits);
+      paint();
     };
 
     capture();
     const observer = new ResizeObserver(capture);
     observer.observe(container);
     return () => observer.disconnect();
-  }, [image, paint]);
+  }, [image, rotation, cropKey, cropMode, paint]);
 
   useEffect(() => {
-    paint(edits);
-  }, [edits, paint]);
+    paint();
+  }, [colorKey, compare, paint]);
 
   return (
     <div
@@ -83,13 +141,29 @@ export function Stage({
       className="pe-stage relative flex min-h-0 flex-1 items-center justify-center overflow-hidden p-8"
     >
       {image ? (
-        <canvas
-          key={image.src}
-          ref={canvasRef}
-          className="pe-photo max-h-full max-w-full"
-          role="img"
-          aria-label="Current photo preview"
-        />
+        <div className="relative overflow-hidden">
+          <canvas
+            key={image.src}
+            ref={canvasRef}
+            className="pe-photo block"
+            role="img"
+            aria-label="Current photo preview"
+          />
+          {compare ? (
+            <div className="pointer-events-none absolute inset-0">
+              <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-white/70" />
+              <span className="absolute left-3 top-3 rounded-sm bg-black/55 px-2 py-0.5 text-[11px] text-white/90">
+                Original
+              </span>
+              <span className="absolute right-3 top-3 rounded-sm bg-black/55 px-2 py-0.5 text-[11px] text-white/90">
+                Edited
+              </span>
+            </div>
+          ) : null}
+          {cropMode ? (
+            <CropOverlay crop={edits.crop ?? FULL_CROP} onChange={setCrop} />
+          ) : null}
+        </div>
       ) : (
         children
       )}

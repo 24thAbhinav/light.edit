@@ -1,25 +1,192 @@
 import { create } from "zustand";
-import { defaultEditState, type EditKey, type EditState } from "./edit-state";
+import {
+  defaultEditState,
+  type CropRegion,
+  type EditState,
+  type ParameterKey,
+} from "./edit-state";
+import { normalizeRotation, rotateCrop } from "./engine/geometry";
 
-interface EditorStore {
+const HISTORY_LIMIT = 100;
+
+export interface EditorPhoto {
+  id: string;
+  name: string;
+  url: string;
+  image: HTMLImageElement;
+  width: number;
+  height: number;
   edits: EditState;
-  setEdit: (key: EditKey, value: number) => void;
-  resetEdit: (key: EditKey) => void;
-  resetAll: () => void;
+  past: EditState[];
+  future: EditState[];
+  lastAction: string | null;
 }
 
+interface EditorStore {
+  photos: EditorPhoto[];
+  activeId: string | null;
+  addPhotos: (photos: EditorPhoto[]) => void;
+  selectPhoto: (id: string) => void;
+  removePhoto: (id: string) => void;
+  setEdit: (key: ParameterKey, value: number) => void;
+  resetEdit: (key: ParameterKey) => void;
+  resetAll: () => void;
+  rotateBy: (delta: number) => void;
+  setCrop: (crop: CropRegion | null) => void;
+  undo: () => void;
+  redo: () => void;
+}
+
+let photoSequence = 0;
+
+export const createPhotoId = () => {
+  photoSequence += 1;
+  return `photo-${photoSequence}`;
+};
+
+const findActive = (state: EditorStore) =>
+  state.photos.find((photo) => photo.id === state.activeId) ?? null;
+
+const record = (
+  photo: EditorPhoto,
+  next: EditState,
+  actionKey: string | null,
+): EditorPhoto => {
+  const push = actionKey === null || photo.lastAction !== actionKey;
+  return {
+    ...photo,
+    edits: next,
+    past: push ? [...photo.past, photo.edits].slice(-HISTORY_LIMIT) : photo.past,
+    future: [],
+    lastAction: actionKey,
+  };
+};
+
+const replaceActive = (
+  state: EditorStore,
+  next: EditorPhoto,
+): Partial<EditorStore> => ({
+  photos: state.photos.map((photo) =>
+    photo.id === next.id ? next : photo,
+  ),
+});
+
 export const useEditorStore = create<EditorStore>((set) => ({
-  edits: defaultEditState,
-  setEdit: (key, value) =>
-    set((state) => ({ edits: { ...state.edits, [key]: value } })),
-  resetEdit: (key) =>
+  photos: [],
+  activeId: null,
+
+  addPhotos: (entries) =>
     set((state) => ({
-      edits: { ...state.edits, [key]: defaultEditState[key] },
+      photos: [...state.photos, ...entries],
+      activeId: state.activeId ?? entries[0]?.id ?? null,
     })),
-  resetAll: () => set({ edits: defaultEditState }),
+
+  selectPhoto: (id) =>
+    set((state) => (state.activeId === id ? {} : { activeId: id })),
+
+  removePhoto: (id) =>
+    set((state) => {
+      const index = state.photos.findIndex((photo) => photo.id === id);
+      if (index === -1) return {};
+      const photos = state.photos.filter((photo) => photo.id !== id);
+      const activeId =
+        state.activeId === id
+          ? (photos[index]?.id ?? photos[index - 1]?.id ?? null)
+          : state.activeId;
+      return { photos, activeId };
+    }),
+
+  setEdit: (key, value) =>
+    set((state) => {
+      const photo = findActive(state);
+      if (!photo || photo.edits[key] === value) return {};
+      const next = { ...photo.edits, [key]: value };
+      return replaceActive(state, record(photo, next, `param:${key}`));
+    }),
+
+  resetEdit: (key) =>
+    set((state) => {
+      const photo = findActive(state);
+      if (!photo || photo.edits[key] === defaultEditState[key]) return {};
+      const next = { ...photo.edits, [key]: defaultEditState[key] };
+      return replaceActive(state, record(photo, next, null));
+    }),
+
+  resetAll: () =>
+    set((state) => {
+      const photo = findActive(state);
+      if (!photo) return {};
+      return replaceActive(state, record(photo, defaultEditState, null));
+    }),
+
+  rotateBy: (delta) =>
+    set((state) => {
+      const photo = findActive(state);
+      if (!photo) return {};
+      const next: EditState = {
+        ...photo.edits,
+        rotation: normalizeRotation(photo.edits.rotation + delta),
+        crop: photo.edits.crop ? rotateCrop(photo.edits.crop, delta) : null,
+      };
+      return replaceActive(state, record(photo, next, null));
+    }),
+
+  setCrop: (crop) =>
+    set((state) => {
+      const photo = findActive(state);
+      if (!photo) return {};
+      const next = { ...photo.edits, crop };
+      return replaceActive(state, record(photo, next, "crop"));
+    }),
+
+  undo: () =>
+    set((state) => {
+      const photo = findActive(state);
+      if (!photo || photo.past.length === 0) return {};
+      const previous = photo.past[photo.past.length - 1];
+      return replaceActive(state, {
+        ...photo,
+        edits: previous,
+        past: photo.past.slice(0, -1),
+        future: [...photo.future, photo.edits].slice(-HISTORY_LIMIT),
+        lastAction: null,
+      });
+    }),
+
+  redo: () =>
+    set((state) => {
+      const photo = findActive(state);
+      if (!photo || photo.future.length === 0) return {};
+      const next = photo.future[photo.future.length - 1];
+      return replaceActive(state, {
+        ...photo,
+        edits: next,
+        past: [...photo.past, photo.edits].slice(-HISTORY_LIMIT),
+        future: photo.future.slice(0, -1),
+        lastAction: null,
+      });
+    }),
 }));
 
+export const selectActivePhoto = (state: EditorStore) => findActive(state);
+
+export const getActiveEdits = () =>
+  findActive(useEditorStore.getState())?.edits ?? defaultEditState;
+
+export const selectParameter =
+  (key: ParameterKey) => (state: EditorStore) =>
+    (findActive(state)?.edits ?? defaultEditState)[key];
+
+export const useActiveEdits = () =>
+  useEditorStore((state) => findActive(state)?.edits ?? defaultEditState);
+
+export const useCanUndo = () =>
+  useEditorStore((state) => (findActive(state)?.past.length ?? 0) > 0);
+
+export const useCanRedo = () =>
+  useEditorStore((state) => (findActive(state)?.future.length ?? 0) > 0);
+
 export const hasEdits = (edits: EditState) =>
-  (Object.keys(edits) as EditKey[]).some(
+  (Object.keys(defaultEditState) as (keyof EditState)[]).some(
     (key) => edits[key] !== defaultEditState[key],
   );

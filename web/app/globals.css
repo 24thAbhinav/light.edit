@@ -30,6 +30,7 @@
   --color-accent: var(--accent);
   --font-sans: var(--font-plex-sans);
   --font-mono: var(--font-plex-mono);
+  --font-serif: var(--font-instrument-serif);
 }
 
 html,
@@ -57,6 +58,11 @@ body {
 
 .pe-wordmark-ext {
   font-family: var(--font-mono), ui-monospace, monospace;
+}
+
+.pe-grain {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
 }
 
 .pe-stage {

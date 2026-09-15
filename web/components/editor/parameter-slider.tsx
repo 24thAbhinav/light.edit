@@ -2,7 +2,7 @@
 
 import { useId } from "react";
 import type { ParameterDefinition } from "@/lib/edit-state";
-import { useEditorStore } from "@/lib/editor-store";
+import { selectParameter, useEditorStore } from "@/lib/editor-store";
 
 export function ParameterSlider({
   parameter,
@@ -10,7 +10,7 @@ export function ParameterSlider({
   parameter: ParameterDefinition;
 }) {
   const id = useId();
-  const value = useEditorStore((state) => state.edits[parameter.key]);
+  const value = useEditorStore(selectParameter(parameter.key));
   const setEdit = useEditorStore((state) => state.setEdit);
   const resetEdit = useEditorStore((state) => state.resetEdit);
 

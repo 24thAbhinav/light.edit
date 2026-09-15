@@ -1,4 +1,11 @@
-export type EditKey =
+export interface CropRegion {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export type ParameterKey =
   | "exposure"
   | "contrast"
   | "highlights"
@@ -10,7 +17,10 @@ export type EditKey =
   | "vibrance"
   | "saturation";
 
-export type EditState = Record<EditKey, number>;
+export type EditState = Record<ParameterKey, number> & {
+  rotation: number;
+  crop: CropRegion | null;
+};
 
 export const defaultEditState: EditState = {
   exposure: 0,
@@ -23,10 +33,12 @@ export const defaultEditState: EditState = {
   tint: 0,
   vibrance: 0,
   saturation: 0,
+  rotation: 0,
+  crop: null,
 };
 
 export interface ParameterDefinition {
-  key: EditKey;
+  key: ParameterKey;
   label: string;
   min: number;
   max: number;
