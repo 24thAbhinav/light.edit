@@ -143,6 +143,7 @@ export function EditorShell() {
       if (isTypingTarget(event.target)) return;
       const key = event.key.toLowerCase();
       const mod = event.metaKey || event.ctrlKey;
+      const rotateKey = event.code === "KeyR" || key === "r";
 
       if (mod && key === "z") {
         event.preventDefault();
@@ -150,8 +151,9 @@ export function EditorShell() {
         else useEditorStore.getState().undo();
         return;
       }
-      if (mod && key === "r") {
+      if (mod && rotateKey) {
         event.preventDefault();
+        event.stopPropagation();
         useEditorStore.getState().rotateBy(90);
         return;
       }
@@ -167,12 +169,12 @@ export function EditorShell() {
 
     const onBlur = () => setCompare(false);
 
-    window.addEventListener("keydown", onKeyDown);
-    window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("keydown", onKeyDown, true);
+    window.addEventListener("keyup", onKeyUp, true);
     window.addEventListener("blur", onBlur);
     return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("keydown", onKeyDown, true);
+      window.removeEventListener("keyup", onKeyUp, true);
       window.removeEventListener("blur", onBlur);
     };
   }, []);
