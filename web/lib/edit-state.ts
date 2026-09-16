@@ -15,7 +15,12 @@ export type ParameterKey =
   | "temperature"
   | "tint"
   | "vibrance"
-  | "saturation";
+  | "saturation"
+  | "texture"
+  | "clarity"
+  | "dehaze"
+  | "vignette"
+  | "grain";
 
 export type EditState = Record<ParameterKey, number> & {
   rotation: number;
@@ -33,6 +38,11 @@ export const defaultEditState: EditState = {
   tint: 0,
   vibrance: 0,
   saturation: 0,
+  texture: 0,
+  clarity: 0,
+  dehaze: 0,
+  vignette: 0,
+  grain: 0,
   rotation: 0,
   crop: null,
 };
@@ -157,6 +167,61 @@ export const parameterGroups: ParameterGroup[] = [
         step: 1,
         defaultValue: 0,
         format: signed,
+      },
+    ],
+  },
+  {
+    label: "Presence",
+    parameters: [
+      {
+        key: "texture",
+        label: "Texture",
+        min: -100,
+        max: 100,
+        step: 1,
+        defaultValue: 0,
+        format: signed,
+      },
+      {
+        key: "clarity",
+        label: "Clarity",
+        min: -100,
+        max: 100,
+        step: 1,
+        defaultValue: 0,
+        format: signed,
+      },
+      {
+        key: "dehaze",
+        label: "Dehaze",
+        min: -100,
+        max: 100,
+        step: 1,
+        defaultValue: 0,
+        format: signed,
+      },
+    ],
+  },
+  {
+    label: "Effects",
+    parameters: [
+      {
+        key: "vignette",
+        label: "Vignette",
+        min: -100,
+        max: 100,
+        step: 1,
+        defaultValue: 0,
+        format: signed,
+      },
+      {
+        key: "grain",
+        label: "Grain",
+        min: 0,
+        max: 100,
+        step: 1,
+        defaultValue: 0,
+        format: (value) => `${value}`,
       },
     ],
   },

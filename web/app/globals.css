@@ -12,6 +12,7 @@
   --ink-muted: #9a9a9a;
   --ink-faint: #6a6a6a;
   --accent: #e0a84a;
+  --accent-brand: #e0609f;
   --cool: #4a72b0;
   --warm: #d29a45;
   --green: #3f9e6b;
@@ -260,6 +261,10 @@ body {
   animation: pe-rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) 0.08s both;
 }
 
+.pe-rise-stage {
+  animation: pe-rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) 0.14s both;
+}
+
 .pe-photo {
   animation: pe-fade 0.45s ease both;
 }
@@ -271,6 +276,7 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .pe-rise,
   .pe-rise-late,
+  .pe-rise-stage,
   .pe-photo,
   .pe-empty {
     animation: none;

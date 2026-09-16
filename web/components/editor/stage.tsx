@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, type ReactNode } from "react";
+import { defaultEditState, type EditState } from "@/lib/edit-state";
 import {
   getActiveEdits,
   useActiveEdits,
@@ -42,18 +43,10 @@ export function Stage({
   const cropKey = appliedCrop
     ? `${appliedCrop.x},${appliedCrop.y},${appliedCrop.width},${appliedCrop.height}`
     : "full";
-  const colorKey = [
-    edits.exposure,
-    edits.contrast,
-    edits.highlights,
-    edits.shadows,
-    edits.whites,
-    edits.blacks,
-    edits.temperature,
-    edits.tint,
-    edits.vibrance,
-    edits.saturation,
-  ].join(",");
+  const colorKey = (Object.keys(defaultEditState) as (keyof EditState)[])
+    .filter((key) => key !== "rotation" && key !== "crop")
+    .map((key) => edits[key])
+    .join(",");
 
   const paint = useCallback(() => {
     const canvas = canvasRef.current;
