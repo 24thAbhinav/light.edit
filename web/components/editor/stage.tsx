@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, type ReactNode } from "react";
-import { defaultEditState, type EditState } from "@/lib/edit-state";
+import { aspectRatioValue, parameterKeys } from "@/lib/edit-state";
 import {
   getActiveEdits,
   useActiveEdits,
@@ -9,10 +9,12 @@ import {
 } from "@/lib/editor-store";
 import { processImageData } from "@/lib/engine/image-processor";
 import {
+  cropPixelRatio,
   cropToPixels,
   drawEditGeometry,
   FULL_CROP,
   rotatedDimensions,
+  type CropConstraint,
 } from "@/lib/engine/geometry";
 import { CropOverlay } from "./crop-overlay";
 
@@ -43,10 +45,26 @@ export function Stage({
   const cropKey = appliedCrop
     ? `${appliedCrop.x},${appliedCrop.y},${appliedCrop.width},${appliedCrop.height}`
     : "full";
-  const colorKey = (Object.keys(defaultEditState) as (keyof EditState)[])
-    .filter((key) => key !== "rotation" && key !== "crop")
-    .map((key) => edits[key])
-    .join(",");
+  const colorKey = parameterKeys.map((key) => edits[key]).join(",");
+  const geometryKey = [
+    edits.rotation,
+    edits.straighten,
+    edits.flipHorizontal,
+    edits.flipVertical,
+    cropKey,
+  ].join(",");
+
+  const constraint: CropConstraint | null = (() => {
+    if (!image || !edits.cropLocked) return null;
+    const frame = rotatedDimensions(image, edits.rotation);
+    const preset = aspectRatioValue(edits.aspectRatio);
+    return {
+      ratio:
+        preset ?? cropPixelRatio(edits.crop, frame.width, frame.height),
+      frameWidth: frame.width,
+      frameHeight: frame.height,
+    };
+  })();
 
   const paint = useCallback(() => {
     const canvas = canvasRef.current;
@@ -107,8 +125,7 @@ export function Stage({
       drawEditGeometry(
         context,
         image,
-        state.rotation,
-        activeCrop,
+        { ...state, crop: activeCrop },
         canvas.width,
         canvas.height,
       );
@@ -121,7 +138,7 @@ export function Stage({
     const observer = new ResizeObserver(capture);
     observer.observe(container);
     return () => observer.disconnect();
-  }, [image, rotation, cropKey, cropMode, paint]);
+  }, [image, geometryKey, cropMode, paint]);
 
   useEffect(() => {
     paint();
@@ -154,7 +171,11 @@ export function Stage({
             </div>
           ) : null}
           {cropMode ? (
-            <CropOverlay crop={edits.crop ?? FULL_CROP} onChange={setCrop} />
+            <CropOverlay
+              crop={edits.crop ?? FULL_CROP}
+              constraint={constraint}
+              onChange={setCrop}
+            />
           ) : null}
         </div>
       ) : (

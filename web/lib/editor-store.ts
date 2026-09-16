@@ -1,11 +1,20 @@
 import { create } from "zustand";
 import {
+  aspectRatioValue,
   defaultEditState,
+  STRAIGHTEN_LIMIT,
+  type AspectRatioKey,
   type CropRegion,
   type EditState,
   type ParameterKey,
 } from "./edit-state";
-import { normalizeRotation, rotateCrop } from "./engine/geometry";
+import {
+  cropForAspect,
+  fitCropToAspect,
+  normalizeRotation,
+  rotateCrop,
+  rotatedDimensions,
+} from "./engine/geometry";
 
 const HISTORY_LIMIT = 100;
 
@@ -33,6 +42,11 @@ interface EditorStore {
   resetAll: () => void;
   rotateBy: (delta: number) => void;
   setCrop: (crop: CropRegion | null) => void;
+  setStraighten: (value: number) => void;
+  setAspectRatio: (key: AspectRatioKey) => void;
+  toggleCropLock: () => void;
+  flipHorizontal: () => void;
+  flipVertical: () => void;
   undo: () => void;
   redo: () => void;
 }
@@ -123,11 +137,14 @@ export const useEditorStore = create<EditorStore>((set) => ({
     set((state) => {
       const photo = findActive(state);
       if (!photo) return {};
-      const next: EditState = {
-        ...photo.edits,
-        rotation: normalizeRotation(photo.edits.rotation + delta),
-        crop: photo.edits.crop ? rotateCrop(photo.edits.crop, delta) : null,
-      };
+      const rotation = normalizeRotation(photo.edits.rotation + delta);
+      let crop = photo.edits.crop ? rotateCrop(photo.edits.crop, delta) : null;
+      const ratio = aspectRatioValue(photo.edits.aspectRatio);
+      if (crop && photo.edits.cropLocked && ratio !== null) {
+        const frame = rotatedDimensions(photo.image, rotation);
+        crop = fitCropToAspect(crop, frame.width, frame.height, ratio);
+      }
+      const next: EditState = { ...photo.edits, rotation, crop };
       return replaceActive(state, record(photo, next, null));
     }),
 
@@ -137,6 +154,76 @@ export const useEditorStore = create<EditorStore>((set) => ({
       if (!photo) return {};
       const next = { ...photo.edits, crop };
       return replaceActive(state, record(photo, next, "crop"));
+    }),
+
+  setStraighten: (value) =>
+    set((state) => {
+      const photo = findActive(state);
+      if (!photo) return {};
+      const straighten = Math.max(
+        -STRAIGHTEN_LIMIT,
+        Math.min(STRAIGHTEN_LIMIT, value),
+      );
+      if (photo.edits.straighten === straighten) return {};
+      const next = { ...photo.edits, straighten };
+      return replaceActive(state, record(photo, next, "straighten"));
+    }),
+
+  setAspectRatio: (key) =>
+    set((state) => {
+      const photo = findActive(state);
+      if (!photo) return {};
+      const ratio = aspectRatioValue(key);
+      if (ratio === null) {
+        const next: EditState = {
+          ...photo.edits,
+          aspectRatio: key,
+          cropLocked: false,
+          crop: null,
+        };
+        return replaceActive(state, record(photo, next, null));
+      }
+      const frame = rotatedDimensions(photo.image, photo.edits.rotation);
+      const next: EditState = {
+        ...photo.edits,
+        aspectRatio: key,
+        cropLocked: true,
+        crop: cropForAspect(frame.width, frame.height, ratio),
+      };
+      return replaceActive(state, record(photo, next, null));
+    }),
+
+  toggleCropLock: () =>
+    set((state) => {
+      const photo = findActive(state);
+      if (!photo) return {};
+      const next: EditState = {
+        ...photo.edits,
+        cropLocked: !photo.edits.cropLocked,
+      };
+      return replaceActive(state, record(photo, next, null));
+    }),
+
+  flipHorizontal: () =>
+    set((state) => {
+      const photo = findActive(state);
+      if (!photo) return {};
+      const next: EditState = {
+        ...photo.edits,
+        flipHorizontal: !photo.edits.flipHorizontal,
+      };
+      return replaceActive(state, record(photo, next, null));
+    }),
+
+  flipVertical: () =>
+    set((state) => {
+      const photo = findActive(state);
+      if (!photo) return {};
+      const next: EditState = {
+        ...photo.edits,
+        flipVertical: !photo.edits.flipVertical,
+      };
+      return replaceActive(state, record(photo, next, null));
     }),
 
   undo: () =>

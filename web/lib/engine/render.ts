@@ -18,7 +18,7 @@ export function renderEditedCanvas(
   const context = canvas.getContext("2d");
   if (!context) return canvas;
 
-  drawEditGeometry(context, image, edits.rotation, edits.crop, width, height);
+  drawEditGeometry(context, image, edits, width, height);
   const source = context.getImageData(0, 0, width, height);
   context.putImageData(processImageData(source, edits), 0, 0);
 

@@ -150,6 +150,11 @@ export function EditorShell() {
         else useEditorStore.getState().undo();
         return;
       }
+      if (mod && key === "r") {
+        event.preventDefault();
+        useEditorStore.getState().rotateBy(90);
+        return;
+      }
       if (!mod && key === "y") {
         event.preventDefault();
         setCompare(true);

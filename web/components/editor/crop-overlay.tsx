@@ -2,7 +2,11 @@
 
 import { useRef, type PointerEvent as ReactPointerEvent } from "react";
 import type { CropRegion } from "@/lib/edit-state";
-import { resizeCrop, type CropHandle } from "@/lib/engine/geometry";
+import {
+  resizeCrop,
+  type CropConstraint,
+  type CropHandle,
+} from "@/lib/engine/geometry";
 
 const HANDLES: CropHandle[] = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
 
@@ -28,13 +32,17 @@ interface DragState {
 
 export function CropOverlay({
   crop,
+  constraint,
   onChange,
 }: {
   crop: CropRegion;
+  constraint: CropConstraint | null;
   onChange: (crop: CropRegion) => void;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
+  const constraintRef = useRef<CropConstraint | null>(constraint);
+  constraintRef.current = constraint;
 
   const begin =
     (handle: CropHandle | "move") =>
@@ -59,7 +67,9 @@ export function CropOverlay({
     if (!drag || drag.width === 0 || drag.height === 0) return;
     const dx = (event.clientX - drag.startX) / drag.width;
     const dy = (event.clientY - drag.startY) / drag.height;
-    onChange(resizeCrop(drag.start, drag.handle, dx, dy));
+    onChange(
+      resizeCrop(drag.start, drag.handle, dx, dy, constraintRef.current),
+    );
   };
 
   const end = (event: ReactPointerEvent<HTMLDivElement>) => {

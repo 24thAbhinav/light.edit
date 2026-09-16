@@ -22,9 +22,110 @@ export type ParameterKey =
   | "vignette"
   | "grain";
 
+export type AspectRatioKey =
+  | "original"
+  | "1:1"
+  | "5:4"
+  | "4:3"
+  | "3:2"
+  | "2:3"
+  | "3:4"
+  | "16:9"
+  | "2:1"
+  | "instagram-square"
+  | "instagram-portrait"
+  | "instagram-landscape"
+  | "instagram-story";
+
+export type AspectRatioGroup = "none" | "standard" | "instagram";
+
+export interface AspectRatioDefinition {
+  key: AspectRatioKey;
+  label: string;
+  hint?: string;
+  group: AspectRatioGroup;
+  ratio: number | null;
+}
+
+export interface AspectRatioMenu {
+  label: string | null;
+  options: AspectRatioDefinition[];
+}
+
+const originalRatio: AspectRatioDefinition = {
+  key: "original",
+  label: "Original",
+  group: "none",
+  ratio: null,
+};
+
+const standardRatios: AspectRatioDefinition[] = [
+  { key: "1:1", label: "1:1", hint: "Square", group: "standard", ratio: 1 },
+  { key: "5:4", label: "5:4", group: "standard", ratio: 5 / 4 },
+  { key: "4:3", label: "4:3", hint: "Classic", group: "standard", ratio: 4 / 3 },
+  { key: "3:2", label: "3:2", hint: "35mm", group: "standard", ratio: 3 / 2 },
+  { key: "2:3", label: "2:3", hint: "Portrait", group: "standard", ratio: 2 / 3 },
+  { key: "3:4", label: "3:4", group: "standard", ratio: 3 / 4 },
+  {
+    key: "16:9",
+    label: "16:9",
+    hint: "Widescreen",
+    group: "standard",
+    ratio: 16 / 9,
+  },
+  { key: "2:1", label: "2:1", hint: "Panorama", group: "standard", ratio: 2 },
+];
+
+const instagramRatios: AspectRatioDefinition[] = [
+  {
+    key: "instagram-square",
+    label: "Instagram 1:1",
+    hint: "Square post",
+    group: "instagram",
+    ratio: 1,
+  },
+  {
+    key: "instagram-portrait",
+    label: "Instagram 4:5",
+    hint: "Feed portrait",
+    group: "instagram",
+    ratio: 4 / 5,
+  },
+  {
+    key: "instagram-landscape",
+    label: "Instagram 1.91:1",
+    hint: "Feed landscape",
+    group: "instagram",
+    ratio: 1.91,
+  },
+  {
+    key: "instagram-story",
+    label: "Instagram 9:16",
+    hint: "Story & reels",
+    group: "instagram",
+    ratio: 9 / 16,
+  },
+];
+
+export const aspectRatioGroups: AspectRatioMenu[] = [
+  { label: null, options: [originalRatio] },
+  { label: "Standard", options: standardRatios },
+  { label: "Instagram", options: instagramRatios },
+];
+
+export const aspectRatioValue = (key: AspectRatioKey) =>
+  aspectRatioGroups
+    .flatMap((group) => group.options)
+    .find((entry) => entry.key === key)?.ratio ?? null;
+
 export type EditState = Record<ParameterKey, number> & {
   rotation: number;
+  straighten: number;
   crop: CropRegion | null;
+  aspectRatio: AspectRatioKey;
+  cropLocked: boolean;
+  flipHorizontal: boolean;
+  flipVertical: boolean;
 };
 
 export const defaultEditState: EditState = {
@@ -44,8 +145,15 @@ export const defaultEditState: EditState = {
   vignette: 0,
   grain: 0,
   rotation: 0,
+  straighten: 0,
   crop: null,
+  aspectRatio: "original",
+  cropLocked: false,
+  flipHorizontal: false,
+  flipVertical: false,
 };
+
+export const STRAIGHTEN_LIMIT = 45;
 
 export interface ParameterDefinition {
   key: ParameterKey;
@@ -226,3 +334,17 @@ export const parameterGroups: ParameterGroup[] = [
     ],
   },
 ];
+
+export const parameterKeys = parameterGroups.flatMap((group) =>
+  group.parameters.map((parameter) => parameter.key),
+);
+
+export const straightenParameter = {
+  label: "Straighten",
+  min: -STRAIGHTEN_LIMIT,
+  max: STRAIGHTEN_LIMIT,
+  step: 0.5,
+  defaultValue: 0,
+  format: (value: number) =>
+    `${value > 0 ? "+" : ""}${Number.isInteger(value) ? value : value.toFixed(1)}`,
+};
