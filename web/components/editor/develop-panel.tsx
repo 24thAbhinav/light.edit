@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import {
   aspectRatioGroups,
   parameterGroups,
@@ -22,6 +21,8 @@ import {
   FlipVerticalIcon,
   LockIcon,
   RotateIcon,
+  RotateLeftIcon,
+  RulerIcon,
   UnlockIcon,
 } from "./icons";
 
@@ -40,12 +41,16 @@ const AUTO_BUTTON =
 export function DevelopPanel({
   hasImage,
   cropMode,
+  straightenMode,
+  onToggleStraightenLine,
   onStartCrop,
   onApplyCrop,
   onCancelCrop,
 }: {
   hasImage: boolean;
   cropMode: boolean;
+  straightenMode: boolean;
+  onToggleStraightenLine: () => void;
   onStartCrop: () => void;
   onApplyCrop: () => void;
   onCancelCrop: () => void;
@@ -61,14 +66,6 @@ export function DevelopPanel({
   const flipVertical = useEditorStore((state) => state.flipVertical);
   const modified = hasEdits(edits);
   const hasCrop = edits.crop !== null;
-
-  const [rotateShortcut, setRotateShortcut] = useState("⌘R");
-
-  useEffect(() => {
-    if (!/Mac|iPhone|iPad|iPod/.test(navigator.userAgent)) {
-      setRotateShortcut("Ctrl R");
-    }
-  }, []);
 
   const runAutoStraighten = () => {
     const photo = selectActivePhoto(useEditorStore.getState());
@@ -99,6 +96,17 @@ export function DevelopPanel({
               Geometry
             </h3>
             <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={onToggleStraightenLine}
+                disabled={!hasImage}
+                title="Draw a level line on the photo"
+                aria-label="Straighten by drawing a line"
+                aria-pressed={straightenMode}
+                className={straightenMode ? ICON_BUTTON_ACTIVE : ICON_BUTTON}
+              >
+                <RulerIcon />
+              </button>
               <button
                 type="button"
                 onClick={flipHorizontal}
@@ -194,20 +202,38 @@ export function DevelopPanel({
                 </button>
               }
             />
+            {straightenMode ? (
+              <p className="mt-2 text-[11px] leading-5 text-ink-faint">
+                Drag across a line that should be level.
+              </p>
+            ) : null}
           </div>
 
           <div className="mt-5 flex gap-2">
             <button
               type="button"
+              onClick={() => rotateBy(-90)}
+              disabled={!hasImage}
+              title="Rotate 90° left ([)"
+              aria-label="Rotate 90 degrees left"
+              className={`group ${ICON_BUTTON} w-auto gap-1 px-2.5`}
+            >
+              <RotateLeftIcon />
+              <span className="font-mono text-[10px] leading-none text-ink-faint opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100">
+                [
+              </span>
+            </button>
+            <button
+              type="button"
               onClick={() => rotateBy(90)}
               disabled={!hasImage}
-              title={`Rotate 90° (${rotateShortcut})`}
-              aria-label="Rotate 90 degrees"
-              className={`group ${ICON_BUTTON} w-auto gap-1.5 px-2.5`}
+              title="Rotate 90° right (])"
+              aria-label="Rotate 90 degrees right"
+              className={`group ${ICON_BUTTON} w-auto gap-1 px-2.5`}
             >
               <RotateIcon />
-              <span className="font-mono text-[10px] tracking-tight text-ink-faint opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100">
-                {rotateShortcut}
+              <span className="font-mono text-[10px] leading-none text-ink-faint opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100">
+                ]
               </span>
             </button>
             {cropMode ? (

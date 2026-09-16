@@ -297,13 +297,23 @@ export function drawEditGeometry(
   const radians = (edits.straighten * Math.PI) / 180;
   const cos = Math.cos(radians);
   const sin = Math.sin(radians);
-  const coveredWidth = Math.abs(region.width * cos) + Math.abs(region.height * sin);
+  const centreX = region.x + region.width / 2;
+  const centreY = region.y + region.height / 2;
+
+  const coveredWidth =
+    Math.abs(region.width * cos) + Math.abs(region.height * sin);
   const coveredHeight =
     Math.abs(region.width * sin) + Math.abs(region.height * cos);
+
+  // Inverse-mapping the crop corners back through the straighten transform
+  // gives  k >= covered / (2 * distance from the crop centre to the frame edge),
+  // so an off-centre crop scales further than a centred one.
+  const reachX = Math.max(Math.min(centreX, frameWidth - centreX), 1e-6);
+  const reachY = Math.max(Math.min(centreY, frameHeight - centreY), 1e-6);
   const cover = Math.max(
     1,
-    coveredWidth / frameWidth,
-    coveredHeight / frameHeight,
+    coveredWidth / (2 * reachX),
+    coveredHeight / (2 * reachY),
   );
 
   context.save();
@@ -321,14 +331,9 @@ export function drawEditGeometry(
 
   context.translate(targetWidth / 2, targetHeight / 2);
   context.scale(scaleX, scaleY);
-  context.translate(
-    -(region.x + region.width / 2),
-    -(region.y + region.height / 2),
-  );
-
-  if (radians !== 0) context.rotate(radians);
   if (cover !== 1) context.scale(cover, cover);
-
+  if (radians !== 0) context.rotate(radians);
+  context.translate(-centreX, -centreY);
   context.translate(placement.x, placement.y);
   context.rotate(placement.radians);
   context.drawImage(image, 0, 0);

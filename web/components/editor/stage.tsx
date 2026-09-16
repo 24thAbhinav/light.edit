@@ -17,18 +17,23 @@ import {
   type CropConstraint,
 } from "@/lib/engine/geometry";
 import { CropOverlay } from "./crop-overlay";
+import { StraightenLine } from "./straighten-line";
 
 export function Stage({
   image,
   isDragging,
   cropMode,
+  straightenMode,
   compare,
+  onStraightenLine,
   children,
 }: {
   image: HTMLImageElement | null;
   isDragging: boolean;
   cropMode: boolean;
+  straightenMode: boolean;
   compare: boolean;
+  onStraightenLine: (degrees: number) => void;
   children: ReactNode;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -176,6 +181,9 @@ export function Stage({
               constraint={constraint}
               onChange={setCrop}
             />
+          ) : null}
+          {straightenMode && !cropMode ? (
+            <StraightenLine onAngle={onStraightenLine} />
           ) : null}
         </div>
       ) : (

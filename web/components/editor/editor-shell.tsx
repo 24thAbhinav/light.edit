@@ -10,6 +10,7 @@ import {
 import { defaultEditState, type CropRegion } from "@/lib/edit-state";
 import {
   createPhotoId,
+  getActiveEdits,
   selectActivePhoto,
   useCanRedo,
   useCanUndo,
@@ -35,6 +36,7 @@ const isTypingTarget = (target: EventTarget | null) => {
   if (!(target instanceof HTMLElement)) return false;
   if (target.isContentEditable) return true;
   if (target.tagName === "TEXTAREA") return true;
+  if (target.tagName === "SELECT") return true;
   if (target.tagName === "INPUT") {
     const type = (target as HTMLInputElement).type;
     return [
@@ -53,6 +55,7 @@ const isTypingTarget = (target: EventTarget | null) => {
 export function EditorShell() {
   const [isDragging, setIsDragging] = useState(false);
   const [cropMode, setCropMode] = useState(false);
+  const [straightenMode, setStraightenMode] = useState(false);
   const [compare, setCompare] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -143,7 +146,6 @@ export function EditorShell() {
       if (isTypingTarget(event.target)) return;
       const key = event.key.toLowerCase();
       const mod = event.metaKey || event.ctrlKey;
-      const rotateKey = event.code === "KeyR" || key === "r";
 
       if (mod && key === "z") {
         event.preventDefault();
@@ -151,12 +153,19 @@ export function EditorShell() {
         else useEditorStore.getState().undo();
         return;
       }
-      if (mod && rotateKey) {
+
+      if (!mod && (event.code === "BracketRight" || key === "]")) {
         event.preventDefault();
-        event.stopPropagation();
         useEditorStore.getState().rotateBy(90);
         return;
       }
+
+      if (!mod && (event.code === "BracketLeft" || key === "[")) {
+        event.preventDefault();
+        useEditorStore.getState().rotateBy(-90);
+        return;
+      }
+
       if (!mod && key === "y") {
         event.preventDefault();
         setCompare(true);
@@ -211,8 +220,22 @@ export function EditorShell() {
   const startCrop = () => {
     const photo = selectActivePhoto(useEditorStore.getState());
     cropBackupRef.current = photo ? photo.edits.crop : null;
+    setStraightenMode(false);
     setCropMode(true);
   };
+
+  const toggleStraightenLine = () => {
+    setCropMode(false);
+    setStraightenMode((active) => !active);
+  };
+
+  const applyStraightenLine = useCallback((degrees: number) => {
+    const current = getActiveEdits();
+    const mirrored = current.flipHorizontal !== current.flipVertical;
+    const delta = mirrored ? degrees : -degrees;
+    useEditorStore.getState().setStraighten(current.straighten + delta);
+    setStraightenMode(false);
+  }, []);
 
   const applyCrop = () => setCropMode(false);
 
@@ -312,7 +335,9 @@ export function EditorShell() {
             image={activeImage}
             isDragging={isDragging}
             cropMode={cropMode}
+            straightenMode={straightenMode}
             compare={compare}
+            onStraightenLine={applyStraightenLine}
           >
             <EmptyState onChoose={openPicker} error={error} />
           </Stage>
@@ -321,6 +346,8 @@ export function EditorShell() {
           <DevelopPanel
             hasImage={activeImage !== null}
             cropMode={cropMode}
+            straightenMode={straightenMode}
+            onToggleStraightenLine={toggleStraightenLine}
             onStartCrop={startCrop}
             onApplyCrop={applyCrop}
             onCancelCrop={cancelCrop}

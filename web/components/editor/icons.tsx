@@ -21,6 +21,15 @@ export function RotateIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function RotateLeftIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M3 12a9 9 0 1 0 2.64-6.36" />
+      <path d="M3 3v6h6" />
+    </svg>
+  );
+}
+
 export function UndoIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base} {...props}>
@@ -89,6 +98,15 @@ export function ChevronDownIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base} {...props}>
       <path d="m6 9.5 6 6 6-6" />
+    </svg>
+  );
+}
+
+export function RulerIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M3.5 15.5 15.5 3.5l5 5-12 12z" />
+      <path d="M7 12l2 2M10 9l2 2M13 6l2 2" />
     </svg>
   );
 }
