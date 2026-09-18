@@ -7,6 +7,7 @@ import {
   useActiveEdits,
   useEditorStore,
 } from "@/lib/editor-store";
+import { calculateHistogram, emptyHistogram } from "@/lib/engine/histogram";
 import { processImageData } from "@/lib/engine/image-processor";
 import {
   cropPixelRatio,
@@ -79,6 +80,7 @@ export function Stage({
     if (!context) return;
 
     const output = processImageData(source, getActiveEdits());
+    useEditorStore.getState().setHistogram(calculateHistogram(output.data));
 
     if (compareRef.current) {
       const rowBytes = source.width * 4;
@@ -97,6 +99,7 @@ export function Stage({
     const container = containerRef.current;
     if (!canvas || !container || !image) {
       sourceRef.current = null;
+      useEditorStore.getState().setHistogram(emptyHistogram());
       return;
     }
 

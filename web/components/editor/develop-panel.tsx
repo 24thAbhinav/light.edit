@@ -13,6 +13,7 @@ import {
   useEditorStore,
 } from "@/lib/editor-store";
 import { autoStraighten } from "@/lib/engine/geometry";
+import { Histogram } from "./histogram";
 import { ParameterSlider } from "./parameter-slider";
 import { Slider } from "./slider";
 import {
@@ -88,6 +89,8 @@ export function DevelopPanel({
           Reset all
         </button>
       </div>
+
+      <Histogram />
 
       <div className="flex-1 overflow-y-auto px-5 py-4">
         <section>

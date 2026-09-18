@@ -15,6 +15,7 @@ import {
   rotateCrop,
   rotatedDimensions,
 } from "./engine/geometry";
+import { emptyHistogram, type Histogram } from "./engine/histogram";
 
 const HISTORY_LIMIT = 100;
 
@@ -34,6 +35,8 @@ export interface EditorPhoto {
 interface EditorStore {
   photos: EditorPhoto[];
   activeId: string | null;
+  histogram: Histogram;
+  setHistogram: (histogram: Histogram) => void;
   addPhotos: (photos: EditorPhoto[]) => void;
   selectPhoto: (id: string) => void;
   removePhoto: (id: string) => void;
@@ -88,6 +91,10 @@ const replaceActive = (
 export const useEditorStore = create<EditorStore>((set) => ({
   photos: [],
   activeId: null,
+  histogram: emptyHistogram(),
+
+  setHistogram: (histogram) =>
+    set((state) => (state.histogram === histogram ? {} : { histogram })),
 
   addPhotos: (entries) =>
     set((state) => ({
