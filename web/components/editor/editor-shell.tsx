@@ -190,6 +190,17 @@ export function EditorShell() {
 
   const openPicker = useCallback(() => inputRef.current?.click(), []);
 
+  const loadSample = useCallback(async () => {
+    try {
+      const response = await fetch("/sample-photo.jpg");
+      const blob = await response.blob();
+      const file = new File([blob], "sample-alpine-sunset.jpg", { type: "image/jpeg" });
+      loadFiles([file]);
+    } catch {
+      setError("Failed to load sample photo.");
+    }
+  }, [loadFiles]);
+
   const handleFileInput = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
     if (files.length > 0) loadFiles(files);
@@ -339,7 +350,11 @@ export function EditorShell() {
             compare={compare}
             onStraightenLine={applyStraightenLine}
           >
-            <EmptyState onChoose={openPicker} error={error} />
+            <EmptyState
+              onChoose={openPicker}
+              onLoadSample={loadSample}
+              error={error}
+            />
           </Stage>
         </div>
         <div className="pe-rise-late flex max-h-[46vh] min-h-0 w-full shrink-0 flex-col border-t border-line bg-panel md:max-h-none md:w-[336px] md:border-t-0 md:border-l">

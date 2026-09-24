@@ -9,6 +9,7 @@ export interface Histogram {
   red: Uint32Array;
   green: Uint32Array;
   blue: Uint32Array;
+  luminance: Uint32Array;
   peak: number;
   clippedShadows: number;
   clippedHighlights: number;
@@ -19,6 +20,7 @@ export const emptyHistogram = (): Histogram => ({
   red: new Uint32Array(HISTOGRAM_BINS),
   green: new Uint32Array(HISTOGRAM_BINS),
   blue: new Uint32Array(HISTOGRAM_BINS),
+  luminance: new Uint32Array(HISTOGRAM_BINS),
   peak: 1,
   clippedShadows: 0,
   clippedHighlights: 0,
@@ -29,6 +31,7 @@ export function calculateHistogram(data: Uint8ClampedArray): Histogram {
   const red = new Uint32Array(HISTOGRAM_BINS);
   const green = new Uint32Array(HISTOGRAM_BINS);
   const blue = new Uint32Array(HISTOGRAM_BINS);
+  const luminance = new Uint32Array(HISTOGRAM_BINS);
   let clippedShadows = 0;
   let clippedHighlights = 0;
   let samples = 0;
@@ -44,6 +47,9 @@ export function calculateHistogram(data: Uint8ClampedArray): Histogram {
     red[r] += 1;
     green[g] += 1;
     blue[b] += 1;
+    // Fast integer luminance approx: (0.299 * r + 0.587 * g + 0.114 * b)
+    const lum = (r * 77 + g * 150 + b * 29) >> 8;
+    luminance[lum] += 1;
     samples += 1;
 
     if (r === 0 || g === 0 || b === 0) clippedShadows += 1;
@@ -58,6 +64,7 @@ export function calculateHistogram(data: Uint8ClampedArray): Histogram {
     if (red[bin] > peak) peak = red[bin];
     if (green[bin] > peak) peak = green[bin];
     if (blue[bin] > peak) peak = blue[bin];
+    if (luminance[bin] > peak) peak = luminance[bin];
   }
   if (peak === 0) {
     peak = Math.max(
@@ -67,6 +74,8 @@ export function calculateHistogram(data: Uint8ClampedArray): Histogram {
       green[HISTOGRAM_BINS - 1],
       blue[0],
       blue[HISTOGRAM_BINS - 1],
+      luminance[0],
+      luminance[HISTOGRAM_BINS - 1],
       1,
     );
   }
@@ -75,6 +84,7 @@ export function calculateHistogram(data: Uint8ClampedArray): Histogram {
     red,
     green,
     blue,
+    luminance,
     peak,
     clippedShadows,
     clippedHighlights,
