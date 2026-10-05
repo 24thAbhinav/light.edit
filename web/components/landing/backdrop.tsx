@@ -15,8 +15,8 @@ export function Backdrop() {
         className="absolute -top-48 left-1/2 h-[620px] w-[1000px] -translate-x-1/2 rounded-full blur-3xl"
         style={{
           background:
-            "radial-gradient(circle, color-mix(in oklab, var(--accent-brand) 20%, transparent), transparent 66%)",
-          opacity: 0.5,
+            "radial-gradient(circle, color-mix(in oklab, var(--accent-brand) 12%, transparent), transparent 66%)",
+          opacity: 0.35,
         }}
       />
       <div

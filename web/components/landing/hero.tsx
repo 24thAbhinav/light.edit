@@ -11,10 +11,10 @@ export function Hero() {
         className="pointer-events-none absolute inset-0 -z-10 overflow-hidden"
       >
         <div
-          className="absolute left-1/2 top-[6%] h-[440px] w-[820px] -translate-x-1/2 rounded-full blur-[130px]"
+          className="absolute left-1/2 top-[6%] h-[400px] w-[760px] -translate-x-1/2 rounded-full blur-[150px]"
           style={{
             background:
-              "radial-gradient(closest-side, color-mix(in oklab, var(--accent-brand) 16%, transparent), transparent 72%)",
+              "radial-gradient(closest-side, color-mix(in oklab, var(--accent-brand) 9%, transparent), transparent 72%)",
           }}
         />
       </div>
@@ -67,17 +67,10 @@ export function Hero() {
           className="pointer-events-none absolute inset-0 -z-10"
         >
           <div
-            className="absolute left-1/2 -top-28 h-[380px] w-[840px] -translate-x-1/2 rounded-full blur-[120px]"
+            className="absolute left-1/2 -top-28 h-[360px] w-[820px] -translate-x-1/2 rounded-full blur-[130px]"
             style={{
               background:
-                "radial-gradient(closest-side, color-mix(in oklab, var(--accent-brand) 30%, transparent), transparent 70%)",
-            }}
-          />
-          <div
-            className="absolute inset-x-16 -bottom-12 h-44 rounded-[50%] blur-[100px]"
-            style={{
-              background:
-                "radial-gradient(closest-side, color-mix(in oklab, var(--accent-brand) 32%, transparent), transparent 72%)",
+                "radial-gradient(closest-side, color-mix(in oklab, var(--accent-brand) 14%, transparent), transparent 70%)",
             }}
           />
         </div>
