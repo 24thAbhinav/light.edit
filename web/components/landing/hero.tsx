@@ -6,19 +6,6 @@ import { HeroPreview } from "./hero-preview";
 export function Hero() {
   return (
     <section className="relative isolate px-6 pt-6 sm:pt-10">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 overflow-hidden"
-      >
-        <div
-          className="absolute left-1/2 top-[6%] h-[400px] w-[760px] -translate-x-1/2 rounded-full blur-[150px]"
-          style={{
-            background:
-              "radial-gradient(closest-side, color-mix(in oklab, var(--accent-brand) 9%, transparent), transparent 72%)",
-          }}
-        />
-      </div>
-
       <div className="mx-auto flex max-w-3xl flex-col items-center text-center">
         <Eyebrow className="pe-rise">Non-destructive photo editing</Eyebrow>
 
@@ -62,18 +49,6 @@ export function Hero() {
       </div>
 
       <div className="pe-rise-stage relative mx-auto mt-14 w-full max-w-[1180px] sm:mt-20">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 -z-10"
-        >
-          <div
-            className="absolute left-1/2 -top-28 h-[360px] w-[820px] -translate-x-1/2 rounded-full blur-[130px]"
-            style={{
-              background:
-                "radial-gradient(closest-side, color-mix(in oklab, var(--accent-brand) 14%, transparent), transparent 70%)",
-            }}
-          />
-        </div>
         <HeroPreview />
       </div>
     </section>

@@ -92,11 +92,6 @@ export function HeroPreview() {
       aria-label="The light.edit editor: a sunset ridge photo on the canvas with a Develop panel of light and color adjustments, toolbar, and filmstrip."
       className="pointer-events-none relative select-none overflow-hidden rounded-2xl border border-line bg-canvas shadow-[0_60px_150px_-40px_rgba(0,0,0,0.95)]"
     >
-      <div
-        aria-hidden
-        className="absolute inset-x-0 top-0 z-20 h-px bg-gradient-to-r from-transparent via-white/[0.12] to-transparent"
-      />
-
       <div className="flex aspect-[16/10] w-full min-w-[740px] flex-col">
         <header className="flex h-14 shrink-0 items-center gap-5 border-b border-line bg-panel px-5">
           <span className="flex items-baseline text-[14px] font-medium tracking-tight text-ink">
@@ -180,11 +175,6 @@ export function HeroPreview() {
                 </div>
               </section>
             </div>
-
-            <div
-              aria-hidden
-              className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-panel via-panel/70 to-transparent"
-            />
           </aside>
         </div>
 
